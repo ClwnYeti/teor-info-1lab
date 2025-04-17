@@ -1,0 +1,1 @@
+# teor-info-1lab
