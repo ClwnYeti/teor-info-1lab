@@ -70,8 +70,14 @@ void arienco_done_encoding(EncodingEnvironmentPtr eep) {
         put_one_bit_0_plus_outstanding;
     }
 
-    Put1Bit(eep->Ecodestrm, *eep->Ecodestrm_len, (eep->Elow >> (BITS_IN_REGISTER-2))&1);
-    Put1Bit(eep->Ecodestrm, *eep->Ecodestrm_len, 1);
+
+    // Then flush remaining significant bits from Elow (to distinguish the final range)
+    for (int i = 1; i < BITS_IN_REGISTER - 1; ++i) {
+        unsigned int bit = (eep->Elow >> (BITS_IN_REGISTER - 1 - i)) & 1;
+        Put1Bit(eep->Ecodestrm, *eep->Ecodestrm_len, bit);
+    }
+
+    // Optionally: align to byte boundary (pad with 0s)
     *eep->Ecodestrm_len = (*eep->Ecodestrm_len + 7) & ~7;
 }
 
@@ -80,7 +86,7 @@ void biari_encode_symbol(EncodingEnvironmentPtr eep, signed int symbol, BiContex
     unsigned int range = eep->Erange;
     unsigned int low = eep->Elow;
 
-    // std::cout << bi_ct->name << " " << symbol << " " << (((symbol) == 256) ? "esc" : std::string(1, (unsigned char)symbol)) << " " << bi_ct->freq[symbol] << " " << bi_ct->freq_all << " " << low << " " << range << std::endl;
+    std::cout << bi_ct->name << " " << symbol << " " << (((symbol) == 256) ? "esc" : std::string(1, (unsigned char)symbol)) << " " << bi_ct->freq[symbol] << " " << bi_ct->freq_all << " " << low << " " << range << std::endl;
 
     low = low + (range * bi_ct->cum_freq[symbol]) / (bi_ct->freq_all);
     range = (range * bi_ct->freq[symbol]) / bi_ct->freq_all;

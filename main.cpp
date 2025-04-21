@@ -185,7 +185,7 @@ public:
                 biari_update_context(&contexts[ctxHash], ALPHABET_SIZE);
                 biari_calculate_with_excluded_symbols_context(&contexts[ctxHash], exludedSymbols);
                 if (contexts[ctxHash].freq[in[i]] > 0) {
-                    // std::cout << i + 1 << " " << in[i] << " -> ";
+                    std::cout << i + 1 << " " << in[i] << " -> ";
                     biari_encode_symbol(eep, in[i], &contexts[ctxHash]);
                     biari_return_context_normal_state(&contexts[ctxHash]);
                     biari_reset_update_context(&contexts[ctxHash], ALPHABET_SIZE);
@@ -193,7 +193,7 @@ public:
                     break;
                 }
 
-                // std::cout << i + 1 << " " << in[i] << " -> ";
+                std::cout << i + 1 << " " << in[i] << " -> ";
                 biari_encode_symbol(eep, ALPHABET_SIZE, &contexts[ctxHash]);
                 biari_return_context_normal_state(&contexts[ctxHash]);
                 biari_reset_update_context(&contexts[ctxHash], ALPHABET_SIZE);
@@ -209,14 +209,14 @@ public:
                 biari_calculate_with_excluded_symbols_context(&contexts[DEFAULT_CONTEXT_HASH], exludedSymbols);
 
                 if (contexts[UNIQUE_CONTEXT_HASH].freq[in[i]] == 1) {
-                    // std::cout << i + 1 << " " << in[i] << " -> ";
+                    std::cout << i + 1 << " " << in[i] << " -> ";
                     biari_encode_symbol(eep, ALPHABET_SIZE, &contexts[DEFAULT_CONTEXT_HASH]);
 
-                    // std::cout << i + 1 << " " << in[i] << " -> ";
+                    std::cout << i + 1 << " " << in[i] << " -> ";
                     biari_encode_symbol(eep, in[i], &contexts[UNIQUE_CONTEXT_HASH]);
                     biari_reset_update_context(&contexts[UNIQUE_CONTEXT_HASH], in[i]);
                 } else {
-                    // std::cout << i + 1 << " " << in[i] << " -> ";
+                    std::cout << i + 1 << " " << in[i] << " -> ";
                     biari_encode_symbol(eep, in[i], &contexts[DEFAULT_CONTEXT_HASH]);
                 }
 
@@ -246,10 +246,7 @@ public:
                 currentContext = currentContext.substr(currentContext.size() - D);
         }
 
-        // std::cout << "EOF" << " -> ";
-        biari_encode_symbol(eep, 256, &contexts[UNIQUE_CONTEXT_HASH]);
-        // std::cout << std::endl;
-
+        biari_encode_symbol(eep, ALPHABET_SIZE, &contexts[DEFAULT_CONTEXT_HASH]);
         arienco_done_encoding(eep);
         arienco_delete_encoding_environment(eep);
         encoded_data.resize(code_len / 8);
@@ -352,6 +349,9 @@ public:
                     symbol = biari_decode_symbol(dep, &contexts[UNIQUE_CONTEXT_HASH]);
                     biari_reset_update_context(&contexts[UNIQUE_CONTEXT_HASH], symbol);
                 }
+            }
+            if (symbol == 256) {
+                break; // End of stream reached
             }
 
             out.put(symbol);
