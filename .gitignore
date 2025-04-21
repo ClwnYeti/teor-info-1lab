@@ -1,0 +1,6 @@
+evgeny-belyaev-lib/test*
+evgeny-belyaev-lib/test/*
+.idea
+.idea/*
+cmake-build-debug
+cmake-build-debug/*

@@ -2,6 +2,13 @@
 #include <vector>
 #include <fstream>
 #include <string>
+#include <unordered_map>
+#include <unordered_set>
+
+#include "evgeny-belyaev-lib/mcoder.h"
+
+#define UNIQUE_CONTEXT_HASH (-2ll)
+#define DEFAULT_CONTEXT_HASH (-1ll)
 
 struct AlgorithmMetaInfo {
     std::string input_file_name;
@@ -16,18 +23,17 @@ class CommandLineParser {
 public:
     CommandLineParser() = default;
 
-    void parseArgs(AlgorithmMetaInfo &out, int argc, char **argv) const;
+    static void parseArgs(AlgorithmMetaInfo &out, int argc, char **argv);
 };
 
 struct FileInfo {
-    std::string file_name;
     std::vector<unsigned char> data = std::vector<unsigned char>();
 
     FileInfo() {
     }
 };
 
-void CommandLineParser::parseArgs(AlgorithmMetaInfo &out, const int argc, char **argv) const {
+void CommandLineParser::parseArgs(AlgorithmMetaInfo &out, const int argc, char **argv) {
     std::string input_file_name;
     bool isEncoder = true;
     std::string output_file_name;
@@ -48,15 +54,14 @@ void CommandLineParser::parseArgs(AlgorithmMetaInfo &out, const int argc, char *
     }
 
 
-
     out.input_file_name = input_file_name;
     out.output_file_name = output_file_name;
     out.isEncoder = isEncoder;
 }
 
-class PictureReader {
+class FileReader {
 public:
-    PictureReader() = default;
+    FileReader() = default;
 
     static int read(FileInfo &out, const std::string &input_file_name) {
         std::ifstream file(input_file_name.c_str(), std::ios::binary);
@@ -64,36 +69,353 @@ public:
             std::cerr << "File not found" << std::endl;
             return 1;
         }
-        out.file_name = input_file_name;
+
         file.seekg(0, std::ios::end);
-        out.data.reserve(file.tellg());
+        out.data.resize(file.tellg());
         file.seekg(0, std::ios::beg);
 
-        file.read(reinterpret_cast<std::istream::char_type *>(out.data.data()), out.data.capacity());
+        file.read(reinterpret_cast<std::istream::char_type *>(out.data.data()), out.data.size());
         file.close();
 
         return 0;
     }
 };
 
-class PictureWriter {
+class HashWorker {
 public:
-    PictureWriter() = default;
-
-    static int write(const std::string &output_file_name, const FileInfo &in) {
-        std::ofstream file(output_file_name.c_str(), std::ios::binary);
-        if (!file.is_open()) {
-            std::cerr << "File not found" << std::endl;
-            return 1;
+    static long long hashFromString(const std::string &str) {
+        long long result = 0;
+        long long multiplier = 1;
+        for (int i = str.size() - 1; i >= 0; i--) {
+            result += multiplier * str[i];
+            multiplier = multiplier * ALPHABET_SIZE;
         }
 
-        file.write(reinterpret_cast<const std::ostream::char_type *>(in.data.data()), in.data.size());
-        file.close();
+        return result;
+    }
 
-        return 0;
+    static std::string stringFromHash(const long long hash) {
+        if (hash == -1) {
+            return "#EmptyDefaultContext";
+        }
+        if (hash == -2) {
+            return "#EmptyUniqueContext";
+        }
+        std::string result;
+        long long currentMultiplier = 1;
+        long long temp = hash;
+        while (hash > currentMultiplier * ALPHABET_SIZE) {
+            currentMultiplier *= ALPHABET_SIZE;
+        }
+        while (currentMultiplier > 0) {
+            result.append(1, temp / currentMultiplier);
+            temp = temp % currentMultiplier;
+            currentMultiplier = currentMultiplier / ALPHABET_SIZE;
+        }
+
+        return result;
+    }
+
+    static long long removeFirstSymbolFromHash(const long long hash) {
+        long long currentMultiplier = ALPHABET_SIZE;
+        while (hash > currentMultiplier * ALPHABET_SIZE) {
+            currentMultiplier *= ALPHABET_SIZE;
+        }
+        return hash % currentMultiplier;
+    }
+
+    static int numOfSymbols(const long long hash) {
+        long long currentMultiplier = 1;
+        int result = 1;
+        while (hash > currentMultiplier * ALPHABET_SIZE) {
+            currentMultiplier *= ALPHABET_SIZE;
+            result++;
+        }
+        return result;
     }
 };
 
-int main()
-{
+class PPMAEncoder {
+public:
+    int D = 5;
+    std::unordered_map<long long, BiContextType> contexts;
+
+    PPMAEncoder() = default;
+
+    explicit PPMAEncoder(const int d) {
+        D = d;
+    }
+
+    int encode(std::vector<unsigned char> &in, std::ofstream &out) {
+        int code_len = 0;
+        EncodingEnvironmentPtr eep;
+        std::vector<unsigned char> encoded_data;
+        encoded_data.resize(in.size());
+        unsigned char *bufptr = encoded_data.data();
+
+        eep = arienco_create_encoding_environment();
+        arienco_start_encoding(eep, bufptr, &code_len);
+
+        contexts.clear();
+
+        contexts[UNIQUE_CONTEXT_HASH] = BiContextType();
+        biari_init_unique_context(&contexts[UNIQUE_CONTEXT_HASH], "#EmptyUniqueContext");
+        contexts[DEFAULT_CONTEXT_HASH] = BiContextType();
+        biari_init_context(&contexts[DEFAULT_CONTEXT_HASH], "#EmptyDefaultContext");
+        std::string currentContext;
+
+        for (long long i = 0; i < in.size(); i++) {
+            std::vector<long long> contextHashes;
+            int d = std::min(D, (int) currentContext.size());
+            long long currentHash = HashWorker::hashFromString(currentContext);
+            std::unordered_set<unsigned int> exludedSymbols;
+
+            for (int depth = d; depth > 0; depth--) {
+                contextHashes.push_back(currentHash);
+                currentHash = HashWorker::removeFirstSymbolFromHash(currentHash);
+            }
+
+            bool symbolEncoded = false;
+            for (long long ctxHash: contextHashes) {
+                if (!contexts.contains(ctxHash)) {
+                    contexts[ctxHash] = BiContextType();
+                    biari_init_context(&contexts[ctxHash], HashWorker::stringFromHash(ctxHash));
+                }
+
+                biari_update_context(&contexts[ctxHash], ALPHABET_SIZE);
+                biari_calculate_with_excluded_symbols_context(&contexts[ctxHash], exludedSymbols);
+                if (contexts[ctxHash].freq[in[i]] > 0) {
+                    // std::cout << i + 1 << " " << in[i] << " -> ";
+                    biari_encode_symbol(eep, in[i], &contexts[ctxHash]);
+                    biari_return_context_normal_state(&contexts[ctxHash]);
+                    biari_reset_update_context(&contexts[ctxHash], ALPHABET_SIZE);
+                    symbolEncoded = true;
+                    break;
+                }
+
+                // std::cout << i + 1 << " " << in[i] << " -> ";
+                biari_encode_symbol(eep, ALPHABET_SIZE, &contexts[ctxHash]);
+                biari_return_context_normal_state(&contexts[ctxHash]);
+                biari_reset_update_context(&contexts[ctxHash], ALPHABET_SIZE);
+                for (int j = 0; j < ALPHABET_SIZE; j++) {
+                    if (contexts[ctxHash].freq[j] > 0) {
+                        exludedSymbols.insert(j);
+                    }
+                }
+            }
+
+            if (!symbolEncoded) {
+                biari_update_context(&contexts[DEFAULT_CONTEXT_HASH], ALPHABET_SIZE);
+                biari_calculate_with_excluded_symbols_context(&contexts[DEFAULT_CONTEXT_HASH], exludedSymbols);
+
+                if (contexts[UNIQUE_CONTEXT_HASH].freq[in[i]] == 1) {
+                    // std::cout << i + 1 << " " << in[i] << " -> ";
+                    biari_encode_symbol(eep, ALPHABET_SIZE, &contexts[DEFAULT_CONTEXT_HASH]);
+
+                    // std::cout << i + 1 << " " << in[i] << " -> ";
+                    biari_encode_symbol(eep, in[i], &contexts[UNIQUE_CONTEXT_HASH]);
+                    biari_reset_update_context(&contexts[UNIQUE_CONTEXT_HASH], in[i]);
+                } else {
+                    // std::cout << i + 1 << " " << in[i] << " -> ";
+                    biari_encode_symbol(eep, in[i], &contexts[DEFAULT_CONTEXT_HASH]);
+                }
+
+                biari_return_context_normal_state(&contexts[DEFAULT_CONTEXT_HASH]);
+                biari_reset_update_context(&contexts[DEFAULT_CONTEXT_HASH], ALPHABET_SIZE);
+            }
+
+            long long updateHash = HashWorker::hashFromString(currentContext);
+            for (int depth = std::min(D, (int) currentContext.size()); depth > 0; depth--) {
+                biari_update_context(&contexts[updateHash], in[i]);
+                // std::cout << contexts[updateHash].name << std::endl;
+                // for (int j = 0; j <= ALPHABET_SIZE; j++) {
+                //     // std::cout << j << "\t";
+                // }
+                // std::cout << std::endl;
+                // for (int j = 0; j <= ALPHABET_SIZE; j++) {
+                //     // std::cout << contexts[updateHash].cum_freq[j] << "\t";
+                // }
+                // std::cout << std::endl;
+                updateHash = HashWorker::removeFirstSymbolFromHash(updateHash);
+            }
+
+            biari_update_context(&contexts[DEFAULT_CONTEXT_HASH], in[i]);
+
+            currentContext.push_back(in[i]);
+            if (currentContext.size() > D)
+                currentContext = currentContext.substr(currentContext.size() - D);
+        }
+
+        // std::cout << "EOF" << " -> ";
+        biari_encode_symbol(eep, 256, &contexts[UNIQUE_CONTEXT_HASH]);
+        // std::cout << std::endl;
+
+        arienco_done_encoding(eep);
+        arienco_delete_encoding_environment(eep);
+        encoded_data.resize(code_len / 8);
+        out.write(reinterpret_cast<const std::ostream::char_type *>(encoded_data.data()), encoded_data.size());
+
+        return code_len / 8;
+    }
+};
+
+class PPMADecoder {
+public:
+    int D = 5;
+    std::unordered_map<long long, BiContextType> contexts;
+
+    PPMADecoder() = default;
+
+    explicit PPMADecoder(const int d) {
+        D = d;
+    }
+
+    int decode(std::vector<unsigned char> &in, std::ofstream &out) {
+        int code_len = 0;
+        DecodingEnvironmentPtr dep;
+        unsigned char *bufptr = in.data();
+
+        dep = arideco_create_decoding_environment();
+        arideco_start_decoding(dep, bufptr, 0, &code_len);
+
+        contexts.clear();
+        contexts[UNIQUE_CONTEXT_HASH] = BiContextType();
+        biari_init_unique_context(&contexts[UNIQUE_CONTEXT_HASH], "#EmptyUniqueContext");
+        contexts[DEFAULT_CONTEXT_HASH] = BiContextType();
+        biari_init_context(&contexts[DEFAULT_CONTEXT_HASH], "#EmptyDefaultContext");
+
+        std::string currentContext;
+        long long i = 0;
+        while (true) {
+            unsigned int symbol = 0;
+            bool symbolDecoded = false;
+            std::unordered_set<unsigned int> excludedSymbols;
+
+            std::vector<long long> contextHashes;
+            long long currentHash = HashWorker::hashFromString(currentContext);
+
+            for (int depth = std::min(D, (int) currentContext.size()); depth > 0; depth--) {
+                contextHashes.push_back(currentHash);
+                currentHash = HashWorker::removeFirstSymbolFromHash(currentHash);
+            }
+
+            bool isEsc = true;
+            for (long long ctxHashEOF: contextHashes) {
+                if (!contexts.contains(ctxHashEOF)) {
+                    continue;
+                }
+                if (biari_peek_symbol(dep, &contexts[ctxHashEOF]) != ALPHABET_SIZE) {
+                    isEsc = false;
+                    break;
+                }
+            }
+            if (isEsc && biari_peek_symbol(dep, &contexts[DEFAULT_CONTEXT_HASH]) == ALPHABET_SIZE && biari_peek_symbol(
+                    dep, &contexts[UNIQUE_CONTEXT_HASH]) == ALPHABET_SIZE) {
+                std::cout << "EOF" << " -> gotten";
+                std::cout << std::endl;
+                break;
+            }
+
+            for (long long ctxHash: contextHashes) {
+                if (!contexts.contains(ctxHash)) {
+                    contexts[ctxHash] = BiContextType();
+                    biari_init_context(&contexts[ctxHash], HashWorker::stringFromHash(ctxHash));
+                }
+
+                std::cout << i + 1 << " -> ";
+                biari_update_context(&contexts[ctxHash], ALPHABET_SIZE);
+                biari_calculate_with_excluded_symbols_context(&contexts[ctxHash], excludedSymbols);
+                symbol = biari_decode_symbol(dep, &contexts[ctxHash]);
+                biari_return_context_normal_state(&contexts[ctxHash]);
+                biari_reset_update_context(&contexts[ctxHash], ALPHABET_SIZE);
+                if (symbol != ALPHABET_SIZE) {
+                    symbolDecoded = true;
+                    break;
+                }
+
+                for (int j = 0; j < ALPHABET_SIZE; j++) {
+                    if (contexts[ctxHash].freq[j] > 0) {
+                        excludedSymbols.insert(j);
+                    }
+                }
+            }
+
+            if (!symbolDecoded) {
+                std::cout << i + 1 << " -> ";
+                biari_update_context(&contexts[DEFAULT_CONTEXT_HASH], ALPHABET_SIZE);
+                biari_calculate_with_excluded_symbols_context(&contexts[DEFAULT_CONTEXT_HASH], excludedSymbols);
+                symbol = biari_decode_symbol(dep, &contexts[DEFAULT_CONTEXT_HASH]);
+                biari_return_context_normal_state(&contexts[DEFAULT_CONTEXT_HASH]);
+                biari_reset_update_context(&contexts[DEFAULT_CONTEXT_HASH], ALPHABET_SIZE);
+                if (symbol == ALPHABET_SIZE) {
+                    std::cout << i + 1 << " -> ";
+                    symbol = biari_decode_symbol(dep, &contexts[UNIQUE_CONTEXT_HASH]);
+                    biari_reset_update_context(&contexts[UNIQUE_CONTEXT_HASH], symbol);
+                }
+            }
+
+            out.put(symbol);
+
+            long long updateHash = HashWorker::hashFromString(currentContext);
+            for (int depth = std::min(D, (int) currentContext.size()); depth > 0; depth--) {
+                biari_update_context(&contexts[updateHash], symbol);
+                // std::cout << contexts[updateHash].name << std::endl;
+                // for (int j = 0; j <= ALPHABET_SIZE; j++) {
+                //     // std::cout << j << "\t";
+                // }
+                // std::cout << std::endl;
+                // for (int j = 0; j <= ALPHABET_SIZE; j++) {
+                //     // std::cout << contexts[updateHash].cum_freq[j] << "\t";
+                // }
+                // std::cout << std::endl;
+                updateHash = HashWorker::removeFirstSymbolFromHash(updateHash);
+            }
+
+            i++;
+            biari_update_context(&contexts[DEFAULT_CONTEXT_HASH], symbol);
+            currentContext.push_back(symbol);
+            if (currentContext.size() > D)
+                currentContext = currentContext.substr(currentContext.size() - D);
+        }
+
+        arideco_delete_decoding_environment(dep);
+
+        return code_len / 8;
+    }
+};
+
+int main(int argc, char **argv) {
+    auto algorithmMetaInfo = AlgorithmMetaInfo();
+    CommandLineParser::parseArgs(algorithmMetaInfo, argc, argv);
+    auto inputFileInfo = FileInfo();
+
+    if (FileReader::read(inputFileInfo, algorithmMetaInfo.input_file_name)) {
+        return 1;
+    }
+    //std::cout << inputFileInfo.data.data() << " " << algorithmMetaInfo.isEncoder << std::endl;
+
+    std::ofstream file(algorithmMetaInfo.output_file_name.c_str(), std::ios::binary);
+    if (!file.is_open()) {
+        std::cerr << "File not found" << std::endl;
+        return 1;
+    }
+    if (algorithmMetaInfo.isEncoder) {
+        auto encoder = PPMAEncoder(5);
+        const int size = encoder.encode(inputFileInfo.data, file);
+        // for (auto i: encoder.contexts) {
+        //     // std::cout << i.first << " " << HashWorker::numOfSymbols(i.first) << " " << i.second.name << " " << i.second.
+        //             freq_all << " " << i.second.freq_all - i.second.freq[256] << std::endl;
+        // }
+        std::cout << "BIT SIZE " << size * 8 << " SYMBOL COUNT " << inputFileInfo.data.size() << " DIVISION " << (double)(size * 8) / (double)inputFileInfo.data.size() << std::endl;
+    } else {
+        auto decoder = PPMADecoder(5);
+        const int size = decoder.decode(inputFileInfo.data, file);
+        // for (auto i: encoder.contexts) {
+        //     // std::cout << i.first << " " << HashWorker::numOfSymbols(i.first) << " " << i.second.name << " " << i.second.
+        //             freq_all << " " << i.second.freq_all - i.second.freq[256] << std::endl;
+        // }
+    }
+    file.close();
+
+    return 0;
 }
