@@ -1,3 +1,4 @@
+#include <iostream>
 #include <string>
 
 #include "mcoder.h"
@@ -52,6 +53,7 @@ void biari_update_context
     ctx->freq_all++;
 
     biari_calculate_context(ctx);
+    printf("Context %s was updated with symbol %d\n", ctx->name.c_str(), symbol);
 }
 
 void biari_calculate_context
@@ -73,6 +75,7 @@ void biari_reset_update_context
     ctx->freq_all--;
 
     biari_calculate_context(ctx);
+    printf("Context %s had a reset of update with symbol %d\n", ctx->name.c_str(), symbol);
 }
 
 void biari_calculate_with_excluded_symbols_context
@@ -96,6 +99,12 @@ void biari_calculate_with_excluded_symbols_context
             ctx->cum_freq[i] = ctx->cum_freq[i - 1];
         }
     }
+
+    std::cout << "For context " << ctx->name << " were excluded symbols: ";
+    for (auto s: symbols) {
+        std::cout << s << " ";
+    }
+    std::cout << "\n";
 }
 
 void biari_return_context_normal_state
@@ -108,4 +117,5 @@ void biari_return_context_normal_state
     }
 
     biari_calculate_context(ctx);
+    std::cout << "Context " << ctx->name << " was restored\n";
 }
