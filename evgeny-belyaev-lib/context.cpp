@@ -27,10 +27,13 @@ void biari_init_unique_context
     ctx->name = name;
 
     ctx->freq_all = 0;
-    ctx->freq[ALPHABET_SIZE] = 0;
 
-    for (int i = 0; i < ALPHABET_SIZE; i++) {
-        ctx->freq[i] = 1;
+    for (int i = 0; i <= ALPHABET_SIZE; i++) {
+        if (i != ESC_SYMBOL) {
+            ctx->freq[i] = 1;
+        } else {
+            ctx->freq[i] = 0;
+        }
         ctx->freq_all += ctx->freq[i];
     }
     biari_calculate_context(ctx);

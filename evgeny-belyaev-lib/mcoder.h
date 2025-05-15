@@ -15,15 +15,15 @@
 #define HALF      (2 * FIRST_QTR)
 #define THIRD_QTR (3 * FIRST_QTR)
 
-#define ALPHABET_SIZE 256
+#define ALPHABET_SIZE 257
 #define ESC_SYMBOL 256
+#define EOF_SYMBOL 257
 #define max_val(a,b) (((a) > (b)) ? (a) : (b))
 
 typedef struct {
     unsigned long long freq[ALPHABET_SIZE + 1];
     unsigned long long freq_all;
     unsigned long long cum_freq[ALPHABET_SIZE + 1];
-    unsigned long long freq_stat[ALPHABET_SIZE + 1];
     std::string name;
 } BiContextType;
 
@@ -40,24 +40,6 @@ typedef BiContextType *BiContextTypePtr;
 #define CABAC_ABS(x) ((x) > 0 ? (x) : -(x))
 #define MAX_BITS_IN_SERIE 25
 ///   25 MAXIMUM
-#define PutZeros(nbits) {\
-    unsigned int iii;\
-    for(iii = 0; iii<(nbits); iii++ )\
-    {\
-      Put1Bit(eep->Ecodestrm, *eep->Ecodestrm_len, 0);\
-    }\
-      }
-
-#define PutLongOnes(nbits) {\
-      unsigned int i1=0xFFFFFFFF;\
-      int bits1;\
-      int main = (nbits)/MAX_BITS_IN_SERIE;\
-      int tail = (nbits)%MAX_BITS_IN_SERIE;\
-      for(bits1 = 0; bits1<main; bits1++ ) {\
-        PutBits(eep->Ecodestrm, *eep->Ecodestrm_len,i1,MAX_BITS_IN_SERIE);\
-      }\
-      PutBits(eep->Ecodestrm, *eep->Ecodestrm_len,i1,tail);\
-    }
 
 #define put_one_bit_0_plus_outstanding { \
 Put1Bit(eep->Ecodestrm, *eep->Ecodestrm_len, 0); \

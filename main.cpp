@@ -87,11 +87,12 @@ public:
 
 class HashWorker {
 public:
-    static long long hashFromString(const std::string &str) {
-        long long result = 0;
-        long long multiplier = 1;
+    static unsigned long long hashFromString(const std::string &str) {
+        unsigned long long result = 0;
+        unsigned long long multiplier = 1;
         for (int i = str.size() - 1; i >= 0; i--) {
-            result += multiplier * str[i];
+            unsigned char c = str[i];
+            result += multiplier * c;
             multiplier = multiplier * ALPHABET_SIZE;
         }
 
@@ -106,8 +107,8 @@ public:
             return "#EmptyUniqueContext";
         }
         std::string result;
-        long long currentMultiplier = 1;
-        long long temp = hash;
+        unsigned long long currentMultiplier = 1;
+        unsigned long long temp = hash;
         while (hash > currentMultiplier * ALPHABET_SIZE) {
             currentMultiplier *= ALPHABET_SIZE;
         }
@@ -120,17 +121,17 @@ public:
         return result;
     }
 
-    static long long removeFirstSymbolFromHash(const long long hash) {
-        long long currentMultiplier = ALPHABET_SIZE;
+    static unsigned long long removeFirstSymbolFromHash(const long long hash) {
+        unsigned long long currentMultiplier = ALPHABET_SIZE;
         while (hash > currentMultiplier * ALPHABET_SIZE) {
             currentMultiplier *= ALPHABET_SIZE;
         }
         return hash % currentMultiplier;
     }
 
-    static int numOfSymbols(const long long hash) {
-        long long currentMultiplier = 1;
-        int result = 1;
+    static int numOfSymbols(const unsigned long long hash) {
+        unsigned long long currentMultiplier = 1;
+        unsigned int result = 1;
         while (hash > currentMultiplier * ALPHABET_SIZE) {
             currentMultiplier *= ALPHABET_SIZE;
             result++;
@@ -240,9 +241,30 @@ public:
                 currentContext = currentContext.substr(currentContext.size() - D);
         }
 
+        std::vector<long long> contextHashes;
+
+        int d = std::min(D, (int) currentContext.size());
+        long long currentHash = HashWorker::hashFromString(currentContext);
+
+        for (int depth = d; depth > 0; depth--) {
+            contextHashes.push_back(currentHash);
+            currentHash = HashWorker::removeFirstSymbolFromHash(currentHash);
+        }
+        for (long long ctxHash: contextHashes) {
+            if (!contexts.contains(ctxHash)) {
+                contexts[ctxHash] = BiContextType();
+                biari_init_context(&contexts[ctxHash], HashWorker::stringFromHash(ctxHash));
+            }
+
+            biari_update_context(&contexts[ctxHash], ESC_SYMBOL);
+
+            // std::cout << "EOF -> ";
+            biari_encode_symbol(eep, ESC_SYMBOL, &contexts[ctxHash]);
+            biari_reset_update_context(&contexts[ctxHash], ESC_SYMBOL);
+        }
         biari_update_context(&contexts[DEFAULT_CONTEXT_HASH], ESC_SYMBOL);
         biari_encode_symbol(eep, ESC_SYMBOL, &contexts[DEFAULT_CONTEXT_HASH]);
-        biari_encode_symbol(eep, ESC_SYMBOL, &contexts[UNIQUE_CONTEXT_HASH]);
+        biari_encode_symbol(eep, EOF_SYMBOL, &contexts[UNIQUE_CONTEXT_HASH]);
         arienco_done_encoding(eep);
         arienco_delete_encoding_environment(eep);
         encoded_data.resize(code_len / 8);
@@ -319,8 +341,8 @@ public:
                 }
                 biari_reset_update_context(&contexts[DEFAULT_CONTEXT_HASH], ESC_SYMBOL);
             }
-            if (symbol == ESC_SYMBOL) {
-                break; // End of stream reached
+            if (symbol == EOF_SYMBOL) {
+                break;
             }
 
             out.put(symbol);
