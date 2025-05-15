@@ -87,9 +87,9 @@ public:
 
 class HashWorker {
 public:
-    static unsigned long long hashFromString(const std::string &str) {
-        unsigned long long result = 0;
-        unsigned long long multiplier = 1;
+    static long long hashFromString(const std::string &str) {
+        long long result = 0;
+        long long multiplier = 1;
         for (int i = str.size() - 1; i >= 0; i--) {
             unsigned char c = str[i];
             result += multiplier * c;
@@ -107,8 +107,8 @@ public:
             return "#EmptyUniqueContext";
         }
         std::string result;
-        unsigned long long currentMultiplier = 1;
-        unsigned long long temp = hash;
+        long long currentMultiplier = 1;
+        long long temp = hash;
         while (hash > currentMultiplier * ALPHABET_SIZE) {
             currentMultiplier *= ALPHABET_SIZE;
         }
@@ -121,17 +121,17 @@ public:
         return result;
     }
 
-    static unsigned long long removeFirstSymbolFromHash(const long long hash) {
-        unsigned long long currentMultiplier = ALPHABET_SIZE;
+    static long long removeFirstSymbolFromHash(const long long hash) {
+        long long currentMultiplier = ALPHABET_SIZE;
         while (hash > currentMultiplier * ALPHABET_SIZE) {
             currentMultiplier *= ALPHABET_SIZE;
         }
         return hash % currentMultiplier;
     }
 
-    static int numOfSymbols(const unsigned long long hash) {
-        unsigned long long currentMultiplier = 1;
-        unsigned int result = 1;
+    static int numOfSymbols(const long long hash) {
+        long long currentMultiplier = 1;
+        int result = 1;
         while (hash > currentMultiplier * ALPHABET_SIZE) {
             currentMultiplier *= ALPHABET_SIZE;
             result++;
