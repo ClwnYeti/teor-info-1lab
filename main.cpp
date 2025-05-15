@@ -11,7 +11,7 @@
 #define DEFAULT_CONTEXT_HASH (-1ll)
 
 void step_prefix(long long i) {
-    std::cout << i + 1 << " -> ";
+    // std::cout << i + 1 << " -> ";
 }
 
 struct AlgorithmMetaInfo {
@@ -186,26 +186,26 @@ public:
                     biari_init_context(&contexts[ctxHash], HashWorker::stringFromHash(ctxHash));
                 }
 
-                biari_update_context(&contexts[ctxHash], ALPHABET_SIZE);
+                biari_update_context(&contexts[ctxHash], ESC_SYMBOL);
                 if (contexts[ctxHash].freq[in[i]] > 0) {
                     step_prefix(i);
                     biari_encode_symbol(eep, in[i], &contexts[ctxHash]);
-                    biari_reset_update_context(&contexts[ctxHash], ALPHABET_SIZE);
+                    biari_reset_update_context(&contexts[ctxHash], ESC_SYMBOL);
                     symbolEncoded = true;
                     break;
                 }
 
                 step_prefix(i);
-                biari_encode_symbol(eep, ALPHABET_SIZE, &contexts[ctxHash]);
-                biari_reset_update_context(&contexts[ctxHash], ALPHABET_SIZE);
+                biari_encode_symbol(eep, ESC_SYMBOL, &contexts[ctxHash]);
+                biari_reset_update_context(&contexts[ctxHash], ESC_SYMBOL);
             }
 
             if (!symbolEncoded) {
-                biari_update_context(&contexts[DEFAULT_CONTEXT_HASH], ALPHABET_SIZE);
+                biari_update_context(&contexts[DEFAULT_CONTEXT_HASH], ESC_SYMBOL);
 
                 if (contexts[UNIQUE_CONTEXT_HASH].freq[in[i]] == 1) {
                     step_prefix(i);
-                    biari_encode_symbol(eep, ALPHABET_SIZE, &contexts[DEFAULT_CONTEXT_HASH]);
+                    biari_encode_symbol(eep, ESC_SYMBOL, &contexts[DEFAULT_CONTEXT_HASH]);
 
                     step_prefix(i);
                     biari_encode_symbol(eep, in[i], &contexts[UNIQUE_CONTEXT_HASH]);
@@ -215,7 +215,7 @@ public:
                     biari_encode_symbol(eep, in[i], &contexts[DEFAULT_CONTEXT_HASH]);
                 }
 
-                biari_reset_update_context(&contexts[DEFAULT_CONTEXT_HASH], ALPHABET_SIZE);
+                biari_reset_update_context(&contexts[DEFAULT_CONTEXT_HASH], ESC_SYMBOL);
             }
 
             long long updateHash = HashWorker::hashFromString(currentContext);
@@ -240,6 +240,9 @@ public:
                 currentContext = currentContext.substr(currentContext.size() - D);
         }
 
+        biari_update_context(&contexts[DEFAULT_CONTEXT_HASH], ESC_SYMBOL);
+        biari_encode_symbol(eep, ESC_SYMBOL, &contexts[DEFAULT_CONTEXT_HASH]);
+        biari_encode_symbol(eep, ESC_SYMBOL, &contexts[UNIQUE_CONTEXT_HASH]);
         arienco_done_encoding(eep);
         arienco_delete_encoding_environment(eep);
         encoded_data.resize(code_len / 8);
@@ -276,7 +279,7 @@ public:
 
         std::string currentContext;
         long long i = 0;
-        while (code_len < in.size() * 8) {
+        while (true) {
             unsigned int symbol = 0;
             bool symbolDecoded = false;
 
@@ -294,11 +297,11 @@ public:
                     biari_init_context(&contexts[ctxHash], HashWorker::stringFromHash(ctxHash));
                 }
 
-                biari_update_context(&contexts[ctxHash], ALPHABET_SIZE);
+                biari_update_context(&contexts[ctxHash], ESC_SYMBOL);
                 step_prefix(i);
                 symbol = biari_decode_symbol(dep, &contexts[ctxHash]);
-                biari_reset_update_context(&contexts[ctxHash], ALPHABET_SIZE);
-                if (symbol != ALPHABET_SIZE) {
+                biari_reset_update_context(&contexts[ctxHash], ESC_SYMBOL);
+                if (symbol != ESC_SYMBOL) {
                     symbolDecoded = true;
                     break;
                 }
@@ -306,17 +309,17 @@ public:
             }
 
             if (!symbolDecoded) {
-                biari_update_context(&contexts[DEFAULT_CONTEXT_HASH], ALPHABET_SIZE);
+                biari_update_context(&contexts[DEFAULT_CONTEXT_HASH], ESC_SYMBOL);
                 step_prefix(i);
                 symbol = biari_decode_symbol(dep, &contexts[DEFAULT_CONTEXT_HASH]);
-                if (symbol == ALPHABET_SIZE) {
+                if (symbol == ESC_SYMBOL) {
                     step_prefix(i);
                     symbol = biari_decode_symbol(dep, &contexts[UNIQUE_CONTEXT_HASH]);
                     biari_reset_update_context(&contexts[UNIQUE_CONTEXT_HASH], symbol);
                 }
-                biari_reset_update_context(&contexts[DEFAULT_CONTEXT_HASH], ALPHABET_SIZE);
+                biari_reset_update_context(&contexts[DEFAULT_CONTEXT_HASH], ESC_SYMBOL);
             }
-            if (symbol == 256) {
+            if (symbol == ESC_SYMBOL) {
                 break; // End of stream reached
             }
 
@@ -375,7 +378,7 @@ int main(int argc, char **argv) {
         std::cout << "BIT SIZE " << size * 8 << " SYMBOL COUNT " << inputFileInfo.data.size() << " DIVISION " << (double)(size * 8) / (double)inputFileInfo.data.size() << std::endl;
     } else {
         auto decoder = PPMADecoder(5);
-        const int size = decoder.decode(inputFileInfo.data, file);
+        decoder.decode(inputFileInfo.data, file);
         // for (auto i: encoder.contexts) {
         //     // std::cout << i.first << " " << HashWorker::numOfSymbols(i.first) << " " << i.second.name << " " << i.second.
         //             freq_all << " " << i.second.freq_all - i.second.freq[256] << std::endl;

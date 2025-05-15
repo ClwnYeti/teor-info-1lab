@@ -16,6 +16,7 @@
 #define THIRD_QTR (3 * FIRST_QTR)
 
 #define ALPHABET_SIZE 256
+#define ESC_SYMBOL 256
 #define max_val(a,b) (((a) > (b)) ? (a) : (b))
 
 typedef struct {
