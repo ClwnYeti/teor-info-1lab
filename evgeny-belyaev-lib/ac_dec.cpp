@@ -43,7 +43,7 @@ void arideco_start_decoding(DecodingEnvironmentPtr dep, unsigned char *cpixcode,
                             int firstbyte, int *cpixcode_len) {
     unsigned int bbit = 0;
 
-    int value = 0;
+    long long value = 0;
     dep->Dcodestrm = cpixcode;
     dep->Dcodestrm_len = (unsigned int *) cpixcode_len;
     dep->Dvalue = 0;
@@ -57,24 +57,29 @@ void arideco_start_decoding(DecodingEnvironmentPtr dep, unsigned char *cpixcode,
 
 unsigned int biari_decode_symbol(DecodingEnvironmentPtr dep, BiContextTypePtr bi_ct) {
     int bbit;
-    unsigned int low = dep->Dlow;
-    unsigned int value = dep->Dvalue;
-    unsigned int range = dep->Drange;
-    unsigned int symbol = 0;
+    unsigned long long low = dep->Dlow;
+    unsigned long long value = dep->Dvalue;
+    unsigned long long range = dep->Drange;
+    unsigned long long symbol = 256;
 
-    unsigned int cum = (int) (((unsigned long)(value - low + 1) * bi_ct->freq_all - 1) / range);
+    unsigned long long cum = ((value - low + 1) * bi_ct->freq_all - 1) / range;
     for (int i = 0; i <= ALPHABET_SIZE; i++) {
         if (bi_ct->cum_freq[i] > cum) {
             break;
         }
         symbol = i;
     }
-    std::cout << bi_ct->name << " " << symbol << " " << (((symbol) == 256) ? "esc" : std::string(1, (unsigned char)symbol)) << " " << bi_ct->freq[symbol] << " " << bi_ct->freq_all << " " << low << " " << value << " " << range << std::endl;
+    std::cout << bi_ct->name << " " << symbol << " " << (((symbol) == 256) ? "esc" : std::string(1, (unsigned char)symbol)) << " " << bi_ct->freq[symbol] << " " << bi_ct->freq_all << " " << low << " " << range << std::endl;
+    // for (int i = 0 ; i <= ALPHABET_SIZE; i++) {
+    //     std::cout << bi_ct->cum_freq[i] << " ";
+    // }
+    // std::cout << std::endl;
 
     low = low + (range * bi_ct->cum_freq[symbol]) / bi_ct->freq_all;
     range = (range * bi_ct->freq[symbol]) / bi_ct->freq_all;
     range = max_val(1, range);
 
+    // printf("DEC: low=%u, range=%u, value=%u before renorm\n", low, range, value);
     while (range < QUARTER) {
         if (low >= HALF) {
             low -= HALF;
@@ -94,6 +99,7 @@ unsigned int biari_decode_symbol(DecodingEnvironmentPtr dep, BiContextTypePtr bi
     dep->Drange = range;
     dep->Dvalue = value;
     dep->Dlow = low;
+    // printf("DEC: low=%u, range=%u, value=%u after renorm\n", low, range, value);
     return (symbol);
 }
 

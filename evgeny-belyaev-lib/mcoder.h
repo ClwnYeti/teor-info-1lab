@@ -47,12 +47,6 @@ typedef BiContextType *BiContextTypePtr;
     }\
       }
 
-#define put_one_bit_1_plus_outstanding { \
-                                          Put1Bit(eep->Ecodestrm, *eep->Ecodestrm_len, 1); \
-                                          PutZeros(eep->Ebits_to_follow);\
-                                          eep->Ebits_to_follow = 0;\
-                                         }
-
 #define PutLongOnes(nbits) {\
       unsigned int i1=0xFFFFFFFF;\
       int bits1;\
@@ -65,23 +59,22 @@ typedef BiContextType *BiContextTypePtr;
     }
 
 #define put_one_bit_0_plus_outstanding { \
-                                          Put1Bit(eep->Ecodestrm, *eep->Ecodestrm_len, 0); \
-                                          if( eep->Ebits_to_follow > MAX_BITS_IN_SERIE ) \
-                                          { \
-                                            PutLongOnes(eep->Ebits_to_follow);\
-                                          }\
-                                          else \
-                                          {\
-                                            PutBitsOnes(eep->Ecodestrm, *eep->Ecodestrm_len, eep->Ebits_to_follow);\
-                                          }\
-                                          eep->Ebits_to_follow = 0;\
-                                         }
+Put1Bit(eep->Ecodestrm, *eep->Ecodestrm_len, 0); \
+PutOnes(eep->Ebits_to_follow); \
+eep->Ebits_to_follow = 0; \
+}
+
+#define put_one_bit_1_plus_outstanding { \
+Put1Bit(eep->Ecodestrm, *eep->Ecodestrm_len, 1); \
+PutZeros(eep->Ebits_to_follow); \
+eep->Ebits_to_follow = 0; \
+}
 
 
 //! struct to characterize the state of the arithmetic coding engine
 typedef struct {
-    unsigned int Elow, Erange, Ehigh;
-    unsigned int Ebits_to_follow;
+    unsigned long long Elow, Erange, Ehigh;
+    unsigned long long Ebits_to_follow;
     unsigned char *Ecodestrm;
     unsigned int *Ecodestrm_len;
 } EncodingEnvironment;
@@ -94,6 +87,7 @@ void biari_init_context
     BiContextTypePtr ctx,
     std::string name
 );
+
 void biari_init_unique_context
 (
     BiContextTypePtr ctx,
@@ -117,16 +111,6 @@ void biari_calculate_context
     BiContextTypePtr ctx
 );
 
-void biari_calculate_with_excluded_symbols_context
-(
-    BiContextTypePtr ctx,
-    std::unordered_set<unsigned int> &symbols
-);
-void biari_return_context_normal_state
-(
-    BiContextTypePtr ctx
-);
-
 
 EncodingEnvironmentPtr arienco_create_encoding_environment();
 
@@ -143,10 +127,10 @@ void biari_encode_symbol(EncodingEnvironmentPtr eep, int symbol, BiContextTypePt
 
 //! struct to characterize the state of the arithmetic coding engine
 typedef struct {
-    unsigned int Dlow, Drange, Dhigh;
-    unsigned int Dvalue;
-    unsigned int Dbuffer;
-    int Dbits_to_go;
+    unsigned long long Dlow, Drange, Dhigh;
+    unsigned long long Dvalue;
+    unsigned long long Dbuffer;
+    unsigned long long Dbits_to_go;
     unsigned char *Dcodestrm;
     unsigned int *Dcodestrm_len;
 } DecodingEnvironment;
@@ -166,5 +150,6 @@ int arideco_bits_read(DecodingEnvironmentPtr dep);
 void arideco_done_decoding(DecodingEnvironmentPtr dep);
 
 unsigned int biari_decode_symbol(DecodingEnvironmentPtr dep, BiContextTypePtr bi_ct);
+
 unsigned int biari_peek_symbol(DecodingEnvironmentPtr dep, BiContextType *ctx);
 #endif // !MCODER_H

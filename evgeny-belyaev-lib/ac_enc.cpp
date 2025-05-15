@@ -83,15 +83,20 @@ void arienco_done_encoding(EncodingEnvironmentPtr eep) {
 
 
 void biari_encode_symbol(EncodingEnvironmentPtr eep, signed int symbol, BiContextTypePtr bi_ct) {
-    unsigned int range = eep->Erange;
-    unsigned int low = eep->Elow;
+    unsigned long long range = eep->Erange;
+    unsigned long long low = eep->Elow;
 
     std::cout << bi_ct->name << " " << symbol << " " << (((symbol) == 256) ? "esc" : std::string(1, (unsigned char)symbol)) << " " << bi_ct->freq[symbol] << " " << bi_ct->freq_all << " " << low << " " << range << std::endl;
+    // for (int i = 0 ; i <= ALPHABET_SIZE; i++) {
+    //     std::cout << bi_ct->cum_freq[i] << " ";
+    // }
+    // std::cout << std::endl;
 
     low = low + (range * bi_ct->cum_freq[symbol]) / (bi_ct->freq_all);
     range = (range * bi_ct->freq[symbol]) / bi_ct->freq_all;
     range = max_val(1, range);
 
+    // printf("ENC: low=%u, range=%u before renorm\n", low, range);
     // renormalization
     while (range < QUARTER) {
         if (low >= HALF) {
@@ -109,4 +114,5 @@ void biari_encode_symbol(EncodingEnvironmentPtr eep, signed int symbol, BiContex
 
     eep->Erange = range;
     eep->Elow = low;
+    // printf("ENC: low=%u, range=%u after renorm\n", low, range);
 }

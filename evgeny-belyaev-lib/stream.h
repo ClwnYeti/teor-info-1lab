@@ -45,20 +45,13 @@
 //---------------------------------------------------
 
 //---------------------------------------------------
-#define PutBitsOnes(stream, bitptr, nbits)       	\
-{                                                   \
-   UINT32P(&(UCHARP(stream)[((bitptr)+7)>>3])) = 0;	\
-   UINT32P(&(UCHARP(stream)[(bitptr)>>3]))    |=    \
-    UINT32(mask(0xFFFFFFFF,nbits) << ((bitptr)&0x7)); \
-   bitptr += nbits;                                 \
-}													\
-//---------------------------------------------------
-//---------------------------------------------------
-#define PutBitsZeros(stream, bitptr, nbits)     	\
-{                                                   \
-   UINT32P(&(UCHARP(stream)[((bitptr)+7)>>3])) = 0;	\
-   bitptr += nbits;                                 \
-}													\
+#define PutZeros(n) \
+for (int i = 0; i < (n); i++) \
+Put1Bit(eep->Ecodestrm, *eep->Ecodestrm_len, 0);
+
+#define PutOnes(n) \
+for (int i = 0; i < (n); i++) \
+Put1Bit(eep->Ecodestrm, *eep->Ecodestrm_len, 1);											\
 //---------------------------------------------------
 
 //------------------------------------------------------------------
