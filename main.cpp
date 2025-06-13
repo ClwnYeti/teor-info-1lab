@@ -11,7 +11,7 @@
 #define DEFAULT_CONTEXT_HASH (-1ll)
 
 void step_prefix(long long i) {
-    std::cout << i + 1 << " -> ";
+//    std::cout << i + 1 << " -> ";
 }
 
 struct AlgorithmMetaInfo {
@@ -258,7 +258,7 @@ public:
 
             biari_update_context(&contexts[ctxHash], ESC_SYMBOL);
 
-            std::cout << "EOF -> ";
+            // std::cout << "EOF -> ";
             biari_encode_symbol(eep, ESC_SYMBOL, &contexts[ctxHash]);
             biari_reset_update_context(&contexts[ctxHash], ESC_SYMBOL);
         }

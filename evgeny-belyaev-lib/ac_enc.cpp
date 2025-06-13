@@ -86,7 +86,7 @@ void biari_encode_symbol(EncodingEnvironmentPtr eep, signed int symbol, BiContex
     unsigned long long range = eep->Erange;
     unsigned long long low = eep->Elow;
 
-    std::cout << bi_ct->name << " " << symbol << " " << (((symbol) == 256) ? "esc" : std::string(1, (unsigned char)symbol)) << " " << bi_ct->freq[symbol] << " " << bi_ct->freq_all << " " << low << " " << range << std::endl;
+    // std::cout << bi_ct->name << " " << symbol << " " << (((symbol) == 256) ? "esc" : std::string(1, (unsigned char)symbol)) << " " << bi_ct->freq[symbol] << " " << bi_ct->freq_all << " " << low << " " << range << std::endl;
     // for (int i = 0 ; i <= ALPHABET_SIZE; i++) {
     //     std::cout << bi_ct->cum_freq[i] << " ";
     // }
